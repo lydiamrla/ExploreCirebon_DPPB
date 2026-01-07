@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:explorecirebon/data/favorite_data.dart';
 import 'detail_wisata_screen.dart';
+import 'package:explorecirebon/data/favorite_data.dart';
+import '../controllers/destinasi_controller.dart';
+import '../models/destinasi_model.dart';
+import 'package:explorecirebon/config.dart';
 
 class ReligiScreen extends StatefulWidget {
   const ReligiScreen({Key? key}) : super(key: key);
@@ -11,73 +14,66 @@ class ReligiScreen extends StatefulWidget {
 }
 
 class _ReligiScreenState extends State<ReligiScreen> {
-  
-  void _toggleFavorite(String title, String description, String location, String imagePath) {
+  // Inisialisasi Controller
+  final DestinasiController _controller = DestinasiController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Mengambil data kategori 'Religi' saat layar dibuka
+    _controller.fetchDestinasi('Religi');
+  }
+
+  // Fungsi Favorit yang sudah disesuaikan dengan objek Destinasi
+  void _toggleFavorite(Destinasi item) {
     setState(() {
-      int index = favoriteList.indexWhere((item) => item.title == title);
-      
+      int index = favoriteList.indexWhere((fav) => fav.title == item.nama);
+
       if (index >= 0) {
         favoriteList.removeAt(index);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Dihapus dari Favorit'),
-            duration: const Duration(seconds: 1),
-            backgroundColor: Colors.red.shade400,
-          ),
-        );
+        _showSnackBar('Dihapus dari Favorit', Colors.red.shade400);
       } else {
-        favoriteList.add(FavoriteItem(
-          title: title,
-          description: description,
-          location: location,
-          imagePath: imagePath,
-          category: 'Religi',
-        ));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Ditambahkan ke Favorit'),
-            duration: const Duration(seconds: 1),
-            backgroundColor: Colors.green.shade400,
+        favoriteList.add(
+          FavoriteItem(
+            title: item.nama,
+            description: item.deskripsi ?? '',
+            location: item.lokasi,
+            imagePath: item.gambar ?? '',
+            category: 'Religi',
           ),
         );
+        _showSnackBar('Ditambahkan ke Favorit', Colors.green.shade400);
       }
     });
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 1),
+        backgroundColor: color,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text(
-          'Wisata Religi Cirebon',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
       body: Stack(
         children: [
+          // Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1F4D),
-                  Color(0xFF212859),
-                  Color(0xFF3F467E),
-                ],
+                colors: [Color(0xFF1A1F4D), Color(0xFF212859), Color(0xFF3F467E)],
               ),
             ),
           ),
 
+          // Dekorasi Lingkaran
           Positioned(
             top: -50,
             left: -50,
@@ -92,29 +88,51 @@ class _ReligiScreenState extends State<ReligiScreen> {
           ),
 
           SafeArea(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              children: [
-                _buildReligiCard(
-                  'Makam Sunan Gunung Jati',
-                  'Kompleks pemakaman salah satu Wali Songo yang merupakan pusat penyebaran Islam di Jawa Barat, dengan arsitektur unik perpaduan Jawa dan Tiongkok.',
-                  'Astana Gunung Jati, Gunung Jati',
-                  'assets/image/sunangunungjati.jpg',
-                ),
-                _buildReligiCard(
-                  'Masjid Agung Sang Cipta Rasa',
-                  'Masjid tertua di Cirebon yang dibangun pada tahun 1480 oleh Sunan Gunung Jati dan Sunan Kalijaga, sarat akan nilai sejarah dan spiritual.',
-                  'Jl. Kasepuhan, Lemahwungkuk',
-                  'assets/image/masjidagung.jpg',
-                ),
-                _buildReligiCard(
-                  'Makam Syekh Datok Kahfi',
-                  'Situs religi makam ulama besar sekaligus guru dari Sunan Gunung Jati, terletak di perbukitan yang tenang dan asri.',
-                  'Jl. Panjunan, Lemahwungkuk',
-                  'assets/image/syekhdatuk.jpg',
-                ),
-              ],
+            child: ListenableBuilder(
+              listenable: _controller,
+              builder: (context, child) {
+                // Tampilan Loading
+                if (_controller.isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
+                }
+
+                // Tampilan jika data kosong
+                if (_controller.destinasiList.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.cloud_off, color: Colors.white24, size: 80),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "Belum ada data religi",
+                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                        ),
+                        TextButton(
+                          onPressed: () => _controller.fetchDestinasi('Religi'),
+                          child: const Text("Coba Lagi", style: TextStyle(color: Colors.blueAccent)),
+                        )
+                      ],
+                    ),
+                  );
+                }
+
+                // List Data dari Backend
+                return RefreshIndicator(
+                  onRefresh: () => _controller.fetchDestinasi('Religi'),
+                  child: ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    itemCount: _controller.destinasiList.length,
+                    itemBuilder: (context, index) {
+                      final item = _controller.destinasiList[index];
+                      return _buildReligiCard(context, item);
+                    },
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -122,13 +140,8 @@ class _ReligiScreenState extends State<ReligiScreen> {
     );
   }
 
-  Widget _buildReligiCard(
-    String title,
-    String description,
-    String location,
-    String imagePath,
-  ) {
-    bool isFavorited = favoriteList.any((item) => item.title == title);
+  Widget _buildReligiCard(BuildContext context, Destinasi item) {
+    bool isFavorited = favoriteList.any((fav) => fav.title == item.nama);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 25),
@@ -151,8 +164,9 @@ class _ReligiScreenState extends State<ReligiScreen> {
           children: [
             Stack(
               children: [
-                Image.asset(
-                  imagePath,
+                // Gambar dari Backend (URL)
+                Image.network(
+                  "${AppConfig.storageUrl}/${item.gambar}",
                   width: double.infinity,
                   height: 190,
                   fit: BoxFit.cover,
@@ -160,34 +174,30 @@ class _ReligiScreenState extends State<ReligiScreen> {
                     return Container(
                       height: 190,
                       color: Colors.white.withOpacity(0.1),
-                      child: const Icon(
-                        Icons.mosque_rounded,
-                        color: Colors.white24,
-                        size: 50,
-                      ),
+                      child: const Icon(Icons.image_not_supported, color: Colors.white24, size: 50),
                     );
                   },
                 ),
+                
+                // Gradient Overlay pada Gambar
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
-                        ],
+                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                       ),
                     ),
                   ),
                 ),
-                // TOMBOL FAVORIT
+
+                // Tombol Favorit
                 Positioned(
                   top: 15,
                   right: 15,
                   child: GestureDetector(
-                    onTap: () => _toggleFavorite(title, description, location, imagePath),
+                    onTap: () => _toggleFavorite(item),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(50),
                       child: BackdropFilter(
@@ -217,7 +227,7 @@ class _ReligiScreenState extends State<ReligiScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    item.nama,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -226,7 +236,9 @@ class _ReligiScreenState extends State<ReligiScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    description,
+                    item.deskripsi ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 14,
@@ -236,15 +248,11 @@ class _ReligiScreenState extends State<ReligiScreen> {
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      const Icon(
-                        Icons.location_on,
-                        size: 18,
-                        color: Colors.blueAccent,
-                      ),
+                      const Icon(Icons.location_on, size: 18, color: Colors.blueAccent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          location,
+                          item.lokasi,
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.5),
                             fontSize: 12,
@@ -262,21 +270,14 @@ class _ReligiScreenState extends State<ReligiScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => DetailWisataScreen(
-                              title: title,
-                              description: description,
-                              location: location,
-                            ),
+                            builder: (_) => DetailWisataScreen(destinasi: item),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.menu_book_rounded, size: 20),
+                      icon: const Icon(Icons.explore_rounded, size: 20),
                       label: const Text(
-                        'KUNJUNGI SEKARANG',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                        ),
+                        'JELAJAHI SEKARANG',
+                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1976D2),

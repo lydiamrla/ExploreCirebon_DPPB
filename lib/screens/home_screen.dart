@@ -4,77 +4,124 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:explorecirebon/data/berita_data.dart';
-import 'berita_screen.dart';
 import 'profile_screen.dart';
-import 'budaya_screen.dart';
-import 'kuliner_screen.dart';
-import 'religi_screen.dart';
+import 'favorite_screen.dart';
+import 'destinasi_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _eksplorasiKey = GlobalKey();
+  int _currentIndex = 0;
+
 
   static const LatLng cirebonLatLng = LatLng(-6.737246, 108.552253);
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // BACKGROUND
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1F4D),
-                  Color(0xFF212859),
-                  Color(0xFF3F467E),
-                ],
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: -50,
-            right: -50,
-            child: _buildBlurCircle(200, Colors.blue.withOpacity(0.15)),
-          ),
-
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 10),
-                        _buildHeroSection(),
-                        const SizedBox(height: 32),
-                        _buildSectionTitle('Eksplorasi Wisata'),
-                        const SizedBox(height: 16),
-                        _buildVerticalCategoryList(context),
-                        const SizedBox(height: 32),
-                        _buildSectionTitle('Navigasi Cepat'),
-                        const SizedBox(height: 16),
-                        _buildQuickNavigation(context),
-                        const SizedBox(height: 30),
-                      ],
-                    ),
-                  ),
-                ),
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Stack(
+      children: [
+        // BACKGROUND
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1A1F4D),
+                Color(0xFF212859),
+                Color(0xFF3F467E),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+
+        Positioned(
+          top: -50,
+          right: -50,
+          child: _buildBlurCircle(200, Colors.blue.withOpacity(0.15)),
+        ),
+
+        SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildHeroSection(),
+                      const SizedBox(height: 32),
+                      Container(
+                        key: _eksplorasiKey,
+                        child: _buildSectionTitle('Eksplorasi Wisata'),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildVerticalCategoryList(context),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+
+    // ✅ NAVBAR DI SINI (SATU-SATUNYA TEMPAT YANG BENAR)
+    bottomNavigationBar: BottomNavigationBar(
+      currentIndex: _currentIndex,
+      backgroundColor: const Color(0xFF1A1F4D),
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.white60,
+      type: BottomNavigationBarType.fixed,
+      onTap: (index) {
+        setState(() => _currentIndex = index);
+
+        if (index == 1) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FavoriteScreen()),
+          );
+        } else if (index == 2) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const DestinasiScreen(initialIndex: 0),
+            ),
+          );
+        }
+      },
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.favorite),
+          label: 'Favorite',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.category),
+          label: 'Kategori',
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildBlurCircle(double size, Color color) {
     return Container(
@@ -224,21 +271,23 @@ class HomeScreen extends StatelessWidget {
           context,
           'Budaya',
           'assets/image/budaya.jpg',
-          const BudayaScreen(),
+          const DestinasiScreen(initialIndex: 0),
         ),
         const SizedBox(height: 16),
+
         _buildCategoryCard(
           context,
           'Kuliner',
           'assets/image/kuliner.jpg',
-          const KulinerScreen(),
+          const DestinasiScreen(initialIndex: 1),
         ),
         const SizedBox(height: 16),
+
         _buildCategoryCard(
           context,
           'Religi',
           'assets/image/religi.jpg',
-          const ReligiScreen(),
+          const DestinasiScreen(initialIndex: 2),
         ),
       ],
     );
@@ -291,178 +340,79 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // ================= BERITA =================
-  Widget _buildNewsSlider() {
-    return SizedBox(
-      height: 290,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        // Menambah 1 item untuk tombol "Lihat Semua"
-        itemCount: cirebonNews.length + 1,
-        itemBuilder: (context, index) {
-          if (index == cirebonNews.length) {
-            // Ini adalah item setelah slide terakhir
-            return _buildViewMoreCard(context);
-          }
-          return _NewsCard(news: cirebonNews[index]);
-        },
-      ),
+  Widget _buildQuickNavigation(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _quickNavCard(
+          icon: Icons.home,
+          label: 'Home',
+          onTap: () {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          },
+        ),
+        _quickNavCard(
+          icon: Icons.favorite,
+          label: 'Favorite',
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FavoriteScreen()),
+            );
+          },
+        ),
+        _quickNavCard(
+          icon: Icons.category,
+          label: 'Kategori',
+          onTap: () {
+            final ctx = _eksplorasiKey.currentContext;
+            if (ctx != null) {
+              Scrollable.ensureVisible(
+                ctx,
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 
-  // Widget tombol "Lihat Semua" di akhir slide
-  Widget _buildViewMoreCard(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => NewsScreen()),
-      ),
-      child: Container(
-        width: 150,
-        margin: const EdgeInsets.only(right: 16, bottom: 10),
-        decoration: BoxDecoration(
-          color: Colors.blueAccent.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: Colors.blueAccent,
-                shape: BoxShape.circle,
+  Widget _quickNavCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.15)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: Colors.white, size: 28),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: const Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Lihat Semua\nBerita',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================= WIDGET KARTU BERITA =================
-class _NewsCard extends StatelessWidget {
-  final NewsItem news;
-  const _NewsCard({required this.news});
-
-  Future<void> _openLink() async {
-    final uri = Uri.parse(news.url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: _openLink,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        width: 260,
-        margin: const EdgeInsets.only(right: 16, bottom: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              child: Image.asset(
-                news.image,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 140,
-                    color: Colors.black26,
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.image_not_supported,
-                      color: Colors.white,
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'BERITA TERKINI',
-                      style: TextStyle(
-                        color: Colors.blueAccent,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    news.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Baca selengkapnya',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
-                      Icon(
-                        Icons.arrow_forward,
-                        color: Colors.white38,
-                        size: 14,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

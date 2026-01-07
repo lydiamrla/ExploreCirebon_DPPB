@@ -1,8 +1,90 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../controllers/auth_controller.dart';
 
-class EditProfileScreen extends StatelessWidget {
+class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
+
+  @override
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  late TextEditingController _nameController;
+  late TextEditingController _passwordController;
+  late TextEditingController _confirmPasswordController;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = Provider.of<AuthController>(context, listen: false).user;
+    _nameController = TextEditingController(text: user?.name ?? '');
+    _passwordController = TextEditingController();
+    _confirmPasswordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _handleUpdate() async {
+    final authController = Provider.of<AuthController>(context, listen: false);
+
+    // Validasi
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama tidak boleh kosong')),
+      );
+      return;
+    }
+
+    if (_passwordController.text.isNotEmpty) {
+      if (_passwordController.text.length < 8) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password minimal 8 karakter')),
+        );
+        return;
+      }
+      if (_passwordController.text != _confirmPasswordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konfirmasi password tidak cocok')),
+        );
+        return;
+      }
+    }
+
+    // Loading Dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    // Eksekusi Update
+    bool success = await authController.updateProfile(
+      name: _nameController.text,
+      password: _passwordController.text.isEmpty ? null : _passwordController.text,
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context); // Tutup loading
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(backgroundColor: Colors.green, content: Text('Profil berhasil diperbarui')),
+      );
+      Navigator.pop(context); // Kembali ke Profile
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: Colors.redAccent, content: Text(authController.errorMessage)),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,30 +105,21 @@ class EditProfileScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // 1. BACKGROUND GRADIENT
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF191F51),
-                  Color(0xFF2E3B8C),
-                  Color(0xFF191F51),
-                ],
+                colors: [Color(0xFF191F51), Color(0xFF2E3B8C), Color(0xFF191F51)],
               ),
             ),
           ),
-
-          // 2. CONTENT
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-
-                  // PROFILE PICTURE EDIT
                   Center(
                     child: Stack(
                       children: [
@@ -67,44 +140,24 @@ class EditProfileScreen extends StatelessWidget {
                           right: 0,
                           child: Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: Colors.blueAccent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 40),
-
-                  // INPUT FIELDS SECTION
-                  _buildLabel("Username"),
-                  _inputField('kucinkmosink', Icons.person_outline),
-                  
+                  _inputField('Username', Icons.person_outline, controller: _nameController),
                   const SizedBox(height: 20),
-                  
-                  _buildLabel("Password Baru"),
-                  _inputField('Minimal 8 karakter', Icons.lock_outline, obscure: true),
-                  
+                  _inputField('Minimal 8 karakter', Icons.lock_outline, controller: _passwordController, obscure: true),
                   const SizedBox(height: 20),
-                  
-                  _buildLabel("Konfirmasi Password"),
-                  _inputField('Ulangi password baru', Icons.shield_outlined, obscure: true),
-
+                  _inputField('Ulangi password baru', Icons.shield_outlined, controller: _confirmPasswordController, obscure: true),
                   const SizedBox(height: 40),
-
-                  // SUBMIT BUTTON
                   Container(
                     width: double.infinity,
                     height: 55,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: [Colors.blueAccent, Color(0xFF3B3BBE)],
-                      ),
+                      gradient: const LinearGradient(colors: [Colors.blueAccent, Color(0xFF3B3BBE)]),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.blueAccent.withOpacity(0.3),
@@ -119,9 +172,7 @@ class EditProfileScreen extends StatelessWidget {
                         shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      onPressed: () {
-                        // Logika simpan perubahan
-                      },
+                      onPressed: _handleUpdate,
                       child: const Text(
                         'Simpan Perubahan',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
@@ -138,25 +189,14 @@ class EditProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 8),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-        ),
-      ),
-    );
-  }
 
-  Widget _inputField(String hint, IconData icon, {bool obscure = false}) {
+  Widget _inputField(String hint, IconData icon, {required TextEditingController controller, bool obscure = false}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: TextField(
+          controller: controller,
           obscureText: obscure,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(

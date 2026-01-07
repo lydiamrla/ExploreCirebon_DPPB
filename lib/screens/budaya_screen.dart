@@ -2,6 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'detail_wisata_screen.dart';
 import 'package:explorecirebon/data/favorite_data.dart';
+import '../controllers/destinasi_controller.dart';
+import '../models/destinasi_model.dart';
+import 'package:explorecirebon/config.dart';
 
 class BudayaScreen extends StatefulWidget {
   const BudayaScreen({Key? key}) : super(key: key);
@@ -11,74 +14,66 @@ class BudayaScreen extends StatefulWidget {
 }
 
 class _BudayaScreenState extends State<BudayaScreen> {
-  
-  // Fungsi untuk menambah atau menghapus favorit
-  void _toggleFavorite(String title, String description, String location, String imagePath) {
+  // Inisialisasi Controller
+  final DestinasiController _controller = DestinasiController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Mengambil data kategori 'Budaya' saat layar dibuka
+    _controller.fetchDestinasi('Budaya');
+  }
+
+  // Fungsi Favorit yang sudah disesuaikan dengan objek Destinasi
+  void _toggleFavorite(Destinasi item) {
     setState(() {
-      int index = favoriteList.indexWhere((item) => item.title == title);
-      
+      int index = favoriteList.indexWhere((fav) => fav.title == item.nama);
+
       if (index >= 0) {
         favoriteList.removeAt(index);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Dihapus dari Favorit'),
-            duration: const Duration(seconds: 1),
-            backgroundColor: Colors.red.shade400,
-          ),
-        );
+        _showSnackBar('Dihapus dari Favorit', Colors.red.shade400);
       } else {
-        favoriteList.add(FavoriteItem(
-          title: title,
-          description: description,
-          location: location,
-          imagePath: imagePath,
-          category: 'Budaya',
-        ));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Ditambahkan ke Favorit'),
-            duration: const Duration(seconds: 1),
-            backgroundColor: Colors.green.shade400,
+        favoriteList.add(
+          FavoriteItem(
+            title: item.nama,
+            description: item.deskripsi ?? '',
+            location: item.lokasi,
+            imagePath: item.gambar ?? '',
+            category: 'Budaya',
           ),
         );
+        _showSnackBar('Ditambahkan ke Favorit', Colors.green.shade400);
       }
     });
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 1),
+        backgroundColor: color,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text(
-          'Wisata Budaya Cirebon',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
       body: Stack(
         children: [
+          // Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1F4D),
-                  Color(0xFF212859),
-                  Color(0xFF3F467E),
-                ],
+                colors: [Color(0xFF1A1F4D), Color(0xFF212859), Color(0xFF3F467E)],
               ),
             ),
           ),
-          
+
+          // Dekorasi Lingkaran
           Positioned(
             top: -50,
             left: -50,
@@ -93,32 +88,51 @@ class _BudayaScreenState extends State<BudayaScreen> {
           ),
 
           SafeArea(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              children: [
-                _buildBudayaCard(
-                  context,
-                  'Keraton Kasepuhan',
-                  'Keraton tertua di Cirebon yang menyimpan banyak peninggalan sejarah dan budaya. Dibangun pada abad ke-15 dengan arsitektur yang memadukan gaya Jawa, Sunda, Tiongkok, dan Eropa.',
-                  'Jl. Kasepuhan No.43, Kesepuhan, Kota Cirebon',
-                  'assets/image/kasepuhan.jpg',
-                ),
-                _buildBudayaCard(
-                  context,
-                  'Keraton Kanoman',
-                  'Salah satu dari empat keraton di Cirebon yang masih aktif hingga saat ini. Memiliki koleksi pusaka kerajaan dan gamelan kuno yang masih terawat dengan baik.',
-                  'Jl. Kanoman, Lemahwungkuk, Kota Cirebon',
-                  'assets/image/kanoman.jpg',
-                ),
-                _buildBudayaCard(
-                  context,
-                  'Museum Trupark',
-                  'Museum edukasi batik modern di kawasan Sentra Batik Trusmi, Cirebon. Menampilkan sejarah batik Cirebon dengan teknologi interaktif dan koleksi batik kontemporer.',
-                  'Jl. Pulasaren No.56, Cirebon',
-                  'assets/image/trupak.jpg',
-                ),
-              ],
+            child: ListenableBuilder(
+              listenable: _controller,
+              builder: (context, child) {
+                // Tampilan Loading
+                if (_controller.isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
+                }
+
+                // Tampilan jika data kosong
+                if (_controller.destinasiList.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.cloud_off, color: Colors.white24, size: 80),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "Belum ada data budaya",
+                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                        ),
+                        TextButton(
+                          onPressed: () => _controller.fetchDestinasi('Budaya'),
+                          child: const Text("Coba Lagi", style: TextStyle(color: Colors.blueAccent)),
+                        )
+                      ],
+                    ),
+                  );
+                }
+
+                
+                return RefreshIndicator(
+                  onRefresh: () => _controller.fetchDestinasi('Budaya'),
+                  child: ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    itemCount: _controller.destinasiList.length,
+                    itemBuilder: (context, index) {
+                      final item = _controller.destinasiList[index];
+                      return _buildBudayaCard(context, item);
+                    },
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -126,14 +140,8 @@ class _BudayaScreenState extends State<BudayaScreen> {
     );
   }
 
-  Widget _buildBudayaCard(
-    BuildContext context,
-    String title,
-    String description,
-    String location,
-    String imagePath,
-  ) {
-    bool isFavorited = favoriteList.any((item) => item.title == title);
+  Widget _buildBudayaCard(BuildContext context, Destinasi item) {
+    bool isFavorited = favoriteList.any((fav) => fav.title == item.nama);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 25),
@@ -156,42 +164,40 @@ class _BudayaScreenState extends State<BudayaScreen> {
           children: [
             Stack(
               children: [
-                Image.asset(
-                  imagePath,
+                // Gambar dari Backend (URL)
+                Image.network(
+                  "${AppConfig.storageUrl}/${item.gambar}",
                   width: double.infinity,
                   height: 190,
                   fit: BoxFit.cover,
-                  alignment: title == 'Keraton Kanoman' 
-                      ? Alignment.bottomCenter 
-                      : Alignment.center,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       height: 190,
                       color: Colors.white.withOpacity(0.1),
-                      child: const Icon(Icons.account_balance, color: Colors.white24, size: 50),
+                      child: const Icon(Icons.image_not_supported, color: Colors.white24, size: 50),
                     );
                   },
                 ),
+                
+                // Gradient Overlay pada Gambar
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
-                        ],
+                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                       ),
                     ),
                   ),
                 ),
-                // TOMBOL FAVORIT
+
+                // Tombol Favorit
                 Positioned(
                   top: 15,
                   right: 15,
                   child: GestureDetector(
-                    onTap: () => _toggleFavorite(title, description, location, imagePath),
+                    onTap: () => _toggleFavorite(item),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(50),
                       child: BackdropFilter(
@@ -221,7 +227,7 @@ class _BudayaScreenState extends State<BudayaScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    item.nama,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -230,7 +236,9 @@ class _BudayaScreenState extends State<BudayaScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    description,
+                    item.deskripsi ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 14,
@@ -244,7 +252,7 @@ class _BudayaScreenState extends State<BudayaScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          location,
+                          item.lokasi,
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.5),
                             fontSize: 12,
@@ -262,21 +270,14 @@ class _BudayaScreenState extends State<BudayaScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => DetailWisataScreen(
-                              title: title,
-                              description: description,
-                              location: location,
-                            ),
+                            builder: (_) => DetailWisataScreen(destinasi: item),
                           ),
                         );
                       },
                       icon: const Icon(Icons.explore_rounded, size: 20),
                       label: const Text(
                         'JELAJAHI SEKARANG',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1976D2),

@@ -1,22 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'profile_screen.dart';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import '../models/destinasi_model.dart';
+import '../controllers/destinasi_controller.dart';
+import 'package:explorecirebon/screens/profile_screen.dart';
 
 class DetailWisataScreen extends StatefulWidget {
-  final String title;
-  final String description;
-  final String location;
+  final Destinasi destinasi;
 
   const DetailWisataScreen({
     Key? key,
-    required this.title,
-    required this.description,
-    required this.location,
+    required this.destinasi,
   }) : super(key: key);
 
   @override
@@ -27,99 +22,10 @@ class _DetailWisataScreenState extends State<DetailWisataScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
-  
-
-  // ================== LOKASI ==================
-  /// ================== DATA LOKASI ==================
-  final Map<String, LatLng> _locations = {
-    'Kasepuhan': const LatLng(-6.7063, 108.5571),
-    'Kanoman': const LatLng(-6.7089, 108.5577),
-    'Trupark': const LatLng(-6.7324, 108.5520),
-    'Empal': const LatLng(-6.7069, 108.5565),
-    'Jamblang': const LatLng(-6.7210, 108.5618),
-    'Docang': const LatLng(-6.7075, 108.5559),
-    'Gunung Jati': const LatLng(-6.6629, 108.5361),
-    'Masjid Agung': const LatLng(-6.7083, 108.5567),
-    'Syekh': const LatLng(-6.7264, 108.5503),
-  };
-
-  /// ================== JAM OPERASIONAL ==================
-  final Map<String, String> _jamOperasional = {
-    'Kasepuhan': '09.00 - 17.00 WIB',
-    'Kanoman': '09.00 - 16.30 WIB',
-    'Trupark': '10.00 - 22.00 WIB',
-    'Empal': '07.00 - 21.00 WIB',
-    'Jamblang': '06.00 - 12.00 WIB',
-    'Docang': '06.00 - 10.00 WIB',
-    'Gunung Jati': '08.00 - 17.00 WIB',
-    'Masjid Agung': '24 Jam',
-    'Syekh': '08.00 - 17.00 WIB',
-  };
-
-  String _getImagePath(String title) {
-    // Budaya
-    if (title.contains('Kasepuhan')) return 'assets/image/kasepuhan.jpg';
-    if (title.contains('Kanoman')) return 'assets/image/kanoman.jpg';
-    if (title.contains('Trupark')) return 'assets/image/trupak.jpg';
-
-    // Kuliner
-    if (title.contains('Empal')) return 'assets/image/empalgentong.jpg';
-    if (title.contains('Jamblang')) return 'assets/image/nasijamblang.jpg';
-    if (title.contains('Docang')) return 'assets/image/docang.jpg';
-
-    // Religi
-    if (title.contains('Gunung Jati')) return 'assets/image/sunangunungjati.jpg';
-    if (title.contains('Masjid Agung')) return 'assets/image/masjidagung.jpg';
-    if (title.contains('Syekh')) return 'assets/image/syekhdatuk.jpg';
-
-    return 'assets/image/default.jpg';
-  }
-
-  LatLng _getCoordinates(String title) {
-    for (var key in _locations.keys) {
-      if (title.contains(key)) {
-        return _locations[key]!;
-      }
-    }
-    return const LatLng(-6.7063, 108.5571); // default Cirebon
-  }
-
-    String _getJamOperasional(String title) {
-    for (var key in _jamOperasional.keys) {
-      if (title.contains(key)) {
-        return _jamOperasional[key]!;
-      }
-    }
-    return '08.00 - 17.00 WIB';
-  }
-
-  // ================== GOOGLE MAPS EKSTERNAL ==================
-  Future<void> _openGoogleMaps(LatLng coordinates) async {
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${coordinates.latitude},${coordinates.longitude}',
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-final List<Map<String, String>> _reviews = [
-  {
-    'user': 'kudafluburung',
-    'rating': '⭐⭐⭐⭐',
-    'comment': 'Tempatnya sangat bersejarah dan dijaga dengan sangat baik. Bersih!',
-  },
-  {
-    'user': 'doratravelworld',
-    'rating': '⭐⭐⭐⭐⭐',
-    'comment': 'Wajib dikunjungi kalau ke Cirebon. Guide-nya ramah.',
-  },
-];
-
-// controller form
-final TextEditingController _ulasanController = TextEditingController();
-int _selectedRating = 5;
+  final Set<Marker> _markers = {};
+  final DestinasiController _apiController = DestinasiController();
+  final TextEditingController _ulasanController = TextEditingController();
+  int _selectedRating = 5;
 
   @override
   void initState() {
@@ -129,23 +35,59 @@ int _selectedRating = 5;
   }
 
   void _setupMarker() {
-    final coordinates = _getCoordinates(widget.title);
+    final lat = double.tryParse(widget.destinasi.latitude ?? '0') ?? 0.0;
+    final lng = double.tryParse(widget.destinasi.longitude ?? '0') ?? 0.0;
+    
     _markers.add(
       Marker(
-        markerId: MarkerId(widget.title),
-        position: coordinates,
-        infoWindow: InfoWindow(title: widget.title, snippet: widget.location),
+        markerId: MarkerId(widget.destinasi.id.toString()),
+        position: LatLng(lat, lng),
+        infoWindow: InfoWindow(
+          title: widget.destinasi.nama, 
+          snippet: widget.destinasi.lokasi
+        ),
       ),
     );
   }
 
+  Future<void> _openGoogleMaps() async {
+    final lat = widget.destinasi.latitude;
+    final lng = widget.destinasi.longitude;
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _submitReview() async {
+    if (_ulasanController.text.isEmpty) return;
+
+    bool success = await _apiController.postUlasan(
+      widget.destinasi.id,
+      _ulasanController.text,
+      _selectedRating,
+    );
+
+    if (success) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ulasan berhasil dikirim!')),
+      );
+      _ulasanController.clear();
+      setState(() {
+        _selectedRating = 5;
+      });
+    }
+  }
+
   @override
-void dispose() {
-  _tabController.dispose();
-  _mapController?.dispose();
-  _ulasanController.dispose();
-  super.dispose();
-}
+  void dispose() {
+    _tabController.dispose();
+    _ulasanController.dispose();
+    _mapController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,19 +97,18 @@ void dispose() {
         children: [
           // ================== HERO IMAGE ==================
           Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
+            top: 0, left: 0, right: 0,
             height: MediaQuery.of(context).size.height * 0.45,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  _getImagePath(widget.title),
+                Image.network(
+                  "http://10.0.2.2:8000/storage/${widget.destinasi.gambar}",
                   fit: BoxFit.cover,
-                  alignment: widget.title.contains('Kanoman')
-                      ? Alignment.bottomCenter
-                      : Alignment.center,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[800],
+                    child: const Icon(Icons.image_not_supported, color: Colors.white24, size: 50),
+                  ),
                 ),
                 Container(
                   decoration: BoxDecoration(
@@ -206,29 +147,19 @@ void dispose() {
                       MaterialPageRoute(builder: (_) => const ProfileScreen()),
                     ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.black26,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: const [
-                          Text(
-                            'kucinkmosing',
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
+                          Text('Profile', style: TextStyle(color: Colors.white, fontSize: 12)),
                           SizedBox(width: 8),
                           CircleAvatar(
-                            radius: 14,
-                            backgroundColor: Colors.blueAccent,
-                            child: Icon(
-                              Icons.person,
-                              size: 16,
-                              color: Colors.white,
-                            ),
+                            radius: 14, 
+                            backgroundColor: Colors.blueAccent, 
+                            child: Icon(Icons.person, size: 16, color: Colors.white)
                           ),
                         ],
                       ),
@@ -239,7 +170,7 @@ void dispose() {
             ),
           ),
 
-          // ================== CONTENT ==================
+          // ================== CONTENT SHEET ==================
           DraggableScrollableSheet(
             initialChildSize: 0.6,
             minChildSize: 0.55,
@@ -254,12 +185,8 @@ void dispose() {
                   children: [
                     Container(
                       margin: const EdgeInsets.symmetric(vertical: 12),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -267,30 +194,19 @@ void dispose() {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            widget.destinasi.nama, 
+                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.location_on,
-                                color: Colors.blueAccent,
-                                size: 18,
-                              ),
+                              const Icon(Icons.location_on, color: Colors.blueAccent, size: 18),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  widget.location,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontSize: 13,
-                                  ),
-                                ),
+                                  widget.destinasi.lokasi, 
+                                  style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)
+                                )
                               ),
                             ],
                           ),
@@ -301,13 +217,7 @@ void dispose() {
                     TabBar(
                       controller: _tabController,
                       indicatorColor: Colors.blueAccent,
-                      indicatorWeight: 3,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white38,
-                      tabs: const [
-                        Tab(text: 'Overview'),
-                        Tab(text: 'Ulasan'),
-                      ],
+                      tabs: const [Tab(text: 'Overview'), Tab(text: 'Ulasan')],
                     ),
                     Expanded(
                       child: TabBarView(
@@ -328,254 +238,154 @@ void dispose() {
     );
   }
 
-  // ================== OVERVIEW ==================
   Widget _buildOverviewTab(ScrollController sc) {
-    final coordinates = _getCoordinates(widget.title);
+    final lat = double.tryParse(widget.destinasi.latitude ?? '0') ?? 0.0;
+    final lng = double.tryParse(widget.destinasi.longitude ?? '0') ?? 0.0;
 
     return ListView(
       controller: sc,
       padding: const EdgeInsets.all(24),
       children: [
-        const Text(
-          'Deskripsi Wisata',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        const Text('Deskripsi Wisata', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
-        Text(
-          widget.description,
-          style: TextStyle(color: Colors.white.withOpacity(0.7), height: 1.6),
-        ),
+        Text(widget.destinasi.deskripsi ?? '-', style: TextStyle(color: Colors.white.withOpacity(0.7), height: 1.6)),
         const SizedBox(height: 24),
-
-        // JAM OPERASIONAL (TETAP CARD ASLI)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.access_time_filled, color: Colors.orangeAccent),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Jam Operasional',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    _getJamOperasional(widget.title),
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
+        _buildInfoCard(Icons.confirmation_number, 'Harga Tiket', widget.destinasi.harga ?? 'Gratis'),
+        const SizedBox(height: 12),
+        _buildInfoCard(Icons.access_time_filled, 'Jam Operasional', widget.destinasi.jamOprasional ?? '24 Jam'),
         const SizedBox(height: 20),
-
-        // MAP
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: SizedBox(
             height: 200,
             child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: coordinates,
-                zoom: 16,
-              ),
+              initialCameraPosition: CameraPosition(target: LatLng(lat, lng), zoom: 16),
               markers: _markers,
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
+              onMapCreated: (controller) => _mapController = controller,
               zoomControlsEnabled: false,
-              myLocationButtonEnabled: false,
-              mapToolbarEnabled: false,
             ),
           ),
         ),
-
         const SizedBox(height: 12),
-
-        // BUTTON GOOGLE MAPS
         ElevatedButton.icon(
-          onPressed: () => _openGoogleMaps(coordinates),
+          onPressed: _openGoogleMaps,
           icon: const Icon(Icons.directions),
           label: const Text('Buka di Google Maps'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blueAccent,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
         ),
-
         const SizedBox(height: 50),
       ],
     );
   }
 
-  // ================== ULASAN ==================
-  Widget _buildUlasanTab(ScrollController sc) {
+  Widget _buildInfoCard(IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.orangeAccent),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          ]),
+        ],
+      ),
+    );
+  }
+
+Widget _buildUlasanTab(ScrollController sc) {
+  // Sekarang widget.destinasi.ulasan adalah List<Ulasan>, bukan List<Map>
+  final listUlasan = widget.destinasi.ulasan;
+
   return ListView(
     controller: sc,
     padding: const EdgeInsets.all(24),
     children: [
       _buildFormUlasan(),
       const SizedBox(height: 24),
+      
+      if (listUlasan.isEmpty)
+        const Center(child: Text("Belum ada ulasan", style: TextStyle(color: Colors.white54))),
 
-      // LIST ULASAN
-      ..._reviews.map(
-        (review) => _buildReviewItem(
-          review['user']!,
-          review['rating']!,
-          review['comment']!,
-        ),
-      ),
-      const SizedBox(height: 30),
+      ...listUlasan.map((review) {
+        // Mengakses property menggunakan titik (.) karena sudah jadi Model
+        final userName = review.user?.name ?? 'Anonim';
+        final ratingInt = review.rating;
+        
+        return _buildReviewItem(
+          userName,
+          '⭐' * ratingInt,
+          review.komentar,
+        );
+      }).toList(),
     ],
   );
 }
-Widget _buildFormUlasan() {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.white10),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Tambah Ulasan',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+
+  Widget _buildFormUlasan() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05), 
+        borderRadius: BorderRadius.circular(16), 
+        border: Border.all(color: Colors.white10)
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Tambah Ulasan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          Row(
+            children: List.generate(5, (index) => IconButton(
+              icon: Icon(Icons.star, color: index < _selectedRating ? Colors.orangeAccent : Colors.white24),
+              onPressed: () => setState(() => _selectedRating = index + 1),
+            )),
           ),
-        ),
-        const SizedBox(height: 12),
-
-        // RATING
-        Row(
-          children: List.generate(5, (index) {
-            return IconButton(
-              icon: Icon(
-                Icons.star,
-                color: index < _selectedRating
-                    ? Colors.orangeAccent
-                    : Colors.white24,
-              ),
-              onPressed: () {
-                setState(() {
-                  _selectedRating = index + 1;
-                });
-              },
-            );
-          }),
-        ),
-
-        // ULASAN
-        TextField(
-          controller: _ulasanController,
-          maxLines: 3,
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration('Tulis ulasan...'),
-        ),
-        const SizedBox(height: 16),
-
-        // BUTTON SIMPAN
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _submitReview,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+          TextField(
+            controller: _ulasanController,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Tulis ulasan...', 
+              hintStyle: const TextStyle(color: Colors.white38), 
+              filled: true, 
+              fillColor: Colors.white.withOpacity(0.05), 
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
             ),
-            child: const Text('Kirim Ulasan'),
           ),
-        ),
-      ],
-    ),
-  );
-}
-InputDecoration _inputDecoration(String hint) {
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: Colors.white38),
-    filled: true,
-    fillColor: Colors.white.withOpacity(0.05),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    ),
-  );
-}
-void _submitReview() {
-  if (_ulasanController.text.isEmpty) {
-    return;
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity, 
+            child: ElevatedButton(
+              onPressed: _submitReview, 
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent), 
+              child: const Text('Kirim Ulasan')
+            )
+          ),
+        ],
+      ),
+    );
   }
-
-  setState(() {
-    _reviews.insert(0, {
-      'user': 'Pengunjung',
-      'rating': '⭐' * _selectedRating,
-      'comment': _ulasanController.text,
-    });
-  });
-
-  _ulasanController.clear();
-  _selectedRating = 5;
-}
-
-
 
   Widget _buildReviewItem(String user, String rating, String comment) {
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                user,
-                style: const TextStyle(
-                  color: Colors.blueAccent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(rating, style: const TextStyle(fontSize: 12)),
-            ],
-          ),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(user, style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+            Text(rating, style: const TextStyle(fontSize: 12, color: Colors.orangeAccent)),
+          ]),
           const SizedBox(height: 8),
-          Text(
-            comment,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
-          ),
+          Text(comment, style: const TextStyle(color: Colors.white70, fontSize: 13)),
         ],
       ),
     );

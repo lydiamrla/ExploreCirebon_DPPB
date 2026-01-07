@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../controllers/auth_controller.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'favorite_screen.dart';
@@ -12,14 +14,80 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _notificationEnabled = true; // State untuk notifikasi
+  // Fungsi Logout Terintegrasi
+  void _handleLogout(BuildContext context) async {
+    final authController = Provider.of<AuthController>(context, listen: false);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    bool success = await authController.logout();
+
+    if (!mounted) return;
+    Navigator.pop(context); // Tutup loading
+
+    if (success) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  // Dialog Konfirmasi Logout
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF191F51),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Logout", style: TextStyle(color: Colors.white)),
+        content: const Text(
+          "Apakah anda yakin ingin keluar?",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal", style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleLogout(context);
+            },
+            child: const Text(
+              "Ya, Keluar",
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Ambil data user secara reaktif dari Provider
+    final auth = context.watch<AuthController>();
+    final user = auth.user;
+
+    // Jika sedang loading di awal dan user belum ada, tampilkan loading screen
+    if (auth.isLoading && user == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF191F51),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Background Dasar
+          // Background Dasar
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -34,7 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          // 2. Dekorasi Cahaya Halus
+          // Dekorasi Cahaya Halus
           Positioned(
             top: -50,
             left: -30,
@@ -55,7 +123,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildAppBar(context),
                   const SizedBox(height: 20),
-                  _buildHeaderInfo(),
+
+                  // Tampilkan Nama & Email dari Laravel
+                  _buildHeaderInfo(
+                    name: user?.name ?? 'Guest User',
+                    email: user?.email ?? 'Belum login',
+                  ),
+
                   const SizedBox(height: 40),
                   _buildMenuSection(context),
                 ],
@@ -66,6 +140,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // --- WIDGET HELPER ---
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
@@ -94,7 +170,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -102,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildHeaderInfo() {
+  Widget _buildHeaderInfo({required String name, required String email}) {
     return Column(
       children: [
         Stack(
@@ -110,35 +185,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.blueAccent,
-                    Colors.blueAccent.withOpacity(0.1),
-                  ],
-                ),
-              ),
+              decoration: BoxDecoration(shape: BoxShape.circle),
               child: const CircleAvatar(
-                radius: 55,
-                backgroundColor: Color(0xFF191F51),
-                child: Icon(Icons.person, color: Colors.white, size: 60),
+                radius: 50,
+                backgroundColor: Colors.white10,
+                child: Icon(Icons.person, size: 55, color: Colors.white),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check, size: 16, color: Colors.white),
             ),
           ],
         ),
         const SizedBox(height: 15),
-        const Text(
-          'kucinkmosink',
-          style: TextStyle(
+        Text(
+          name,
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 24,
             fontWeight: FontWeight.w800,
@@ -146,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 5),
         Text(
-          'Expert Traveler • kucinkmosink@gmail.com',
+          email,
           style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
         ),
       ],
@@ -185,10 +244,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(builder: (_) => const FavoriteScreen()),
             ),
           ),
-
-          // NOTIFIKASI DENGAN TOGGLE SWITCH
-          _notificationToggleItem(),
-
           const SizedBox(height: 25),
           _sectionTitle("Security"),
           const SizedBox(height: 15),
@@ -196,11 +251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.logout_rounded,
             iconColor: Colors.redAccent,
             title: 'Logout',
-            onTap: () => Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-            ),
+            onTap: () => _showLogoutDialog(context),
           ),
         ],
       ),
@@ -249,69 +300,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         trailing: Icon(
           Icons.chevron_right_rounded,
           color: Colors.white.withOpacity(0.2),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-  }
-
-  // WIDGET KHUSUS UNTUK NOTIFIKASI DENGAN TOGGLE
-  Widget _notificationToggleItem() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.orangeAccent.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            _notificationEnabled
-                ? Icons.notifications_active_rounded
-                : Icons.notifications_off_rounded,
-            color: Colors.orangeAccent,
-            size: 22,
-          ),
-        ),
-        title: const Text(
-          'Notifikasi',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: Transform.scale(
-          scale: 0.9,
-          child: Switch(
-            value: _notificationEnabled,
-            onChanged: (value) {
-              setState(() {
-                _notificationEnabled = value;
-              });
-
-              // Tampilkan SnackBar untuk feedback
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    value
-                        ? 'Notifikasi diaktifkan'
-                        : 'Notifikasi dinonaktifkan',
-                  ),
-                  duration: const Duration(seconds: 1),
-                  backgroundColor: value
-                      ? Colors.green.shade600
-                      : Colors.grey.shade600,
-                ),
-              );
-            },
-            activeColor: Colors.orangeAccent,
-            activeTrackColor: Colors.orangeAccent.withOpacity(0.5),
-            inactiveThumbColor: Colors.grey.shade400,
-            inactiveTrackColor: Colors.grey.shade700,
-          ),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
+import '../services/auth_services.dart'; // Pastikan path ini benar
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,15 +13,61 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _usernameController = TextEditingController();
+  // Menggunakan email sesuai kebutuhan backend Laravel
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  
   bool obscure = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // LOGIKA LOGIN INTEGRASI BACKEND
+  void _login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showSnackBar('Isi semua kolom ya!', Colors.orangeAccent);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (result['success']) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
+        _showSnackBar(result['message'], Colors.redAccent);
+      }
+    } catch (e) {
+      _showSnackBar('Gagal terhubung ke server', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
@@ -47,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // 2. ORNAMEN DEKORATIF (Efek Cahaya di belakang)
+          // 2. ORNAMEN DEKORATIF
           Positioned(
             top: -100,
             left: -50,
@@ -119,18 +166,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 35),
 
-                              /// INPUT USERNAME
-                              _buildInputLabel("Username"),
+                              /// INPUT EMAIL
+                              // _buildInputLabel("Email"),
                               _buildInputField(
-                                controller: _usernameController,
-                                hint: 'Masukkan username',
-                                icon: Icons.person_outline_rounded,
+                                controller: _emailController,
+                                hint: 'Masukkan email',
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
                               ),
 
                               const SizedBox(height: 25),
 
                               /// INPUT PASSWORD
-                              _buildInputLabel("Password"),
+                              // _buildInputLabel("Password"),
                               _buildInputField(
                                 controller: _passwordController,
                                 hint: 'Masukkan password',
@@ -148,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                               const SizedBox(height: 40),
 
-                              /// TOMBOL LOGIN PREMIUM
+                              /// TOMBOL LOGIN
                               _buildLoginButton(),
                             ],
                           ),
@@ -184,26 +232,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildInputLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.9),
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
   Widget _buildInputField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
     bool obscure = false,
     Widget? suffix,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -213,6 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: TextField(
         controller: controller,
         obscureText: obscure,
+        keyboardType: keyboardType,
         style: const TextStyle(color: Colors.white, fontSize: 16),
         decoration: InputDecoration(
           hintText: hint,
@@ -247,11 +283,13 @@ class _LoginScreenState extends State<LoginScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           elevation: 0,
         ),
-        onPressed: _login,
-        child: const Text(
-          'MASUK',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-        ),
+        onPressed: _isLoading ? null : _login,
+        child: _isLoading 
+          ? const CircularProgressIndicator(color: Colors.white)
+          : const Text(
+              'MASUK',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            ),
       ),
     );
   }
@@ -281,24 +319,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  void _login() {
-    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Isi semua kolom ya!'),
-          backgroundColor: Colors.orangeAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      return;
-    }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart'; // Tambahan untuk koneksi Auth
+import '../controllers/auth_controller.dart'; // Sesuaikan path controller kamu
 import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool obscure1 = true;
   bool obscure2 = true;
+  bool _isLoading = false; // State untuk loading saat hit API
 
   @override
   void dispose() {
@@ -26,6 +29,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  // --- LOGIKA REGISTER KE LARAVEL ---
+ void _register() async {
+    if (usernameController.text.isEmpty || emailController.text.isEmpty || passwordController.text.isEmpty) {
+      _showSnackBar('Field tidak boleh kosong!', Colors.orangeAccent);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthController>(context, listen: false);
+    
+    bool success = await authProvider.register(
+      usernameController.text,
+      emailController.text,
+      passwordController.text,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      _showSnackBar('Anda Berhasil Daftar', Colors.green);
+
+      Future.delayed(const Duration(seconds: 1), () {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          (route) => false,
+        );
+      });
+    } else {
+      _showSnackBar(authProvider.errorMessage ?? 'Registrasi Gagal', Colors.redAccent);
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
@@ -73,16 +120,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    
-                    /// LOGO
                     SvgPicture.asset(
                       'assets/image/logo.svg',
                       height: 100,
                     ),
-
                     const SizedBox(height: 40),
 
-                    /// KARTU REGISTER (GLASSMORPHISM)
+                    // KARTU REGISTER (GLASSMORPHISM)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(30),
                       child: BackdropFilter(
@@ -111,16 +155,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: 30),
 
-                              _buildInputLabel("Username"),
+                              // _buildInputLabel("Username"),
                               _buildInputField(
                                 controller: usernameController,
-                                hint: 'Username baru',
+                                hint: 'Username',
                                 icon: Icons.person_outline_rounded,
                               ),
 
                               const SizedBox(height: 16),
 
-                              _buildInputLabel("Email"),
+                              // _buildInputLabel("Email"),
                               _buildInputField(
                                 controller: emailController,
                                 hint: 'Alamat email',
@@ -130,7 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                               const SizedBox(height: 16),
 
-                              _buildInputLabel("Password"),
+                              // _buildInputLabel("Password"),
                               _buildInputField(
                                 controller: passwordController,
                                 hint: 'Password',
@@ -148,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                               const SizedBox(height: 16),
 
-                              _buildInputLabel("Konfirmasi Password"),
+                              // _buildInputLabel("Konfirmasi Password"),
                               _buildInputField(
                                 controller: confirmPasswordController,
                                 hint: 'Ulangi password',
@@ -174,8 +218,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
 
                     const SizedBox(height: 30),
-
-                    /// LOGIN LINK
                     _buildLoginLink(),
                     const SizedBox(height: 20),
                   ],
@@ -188,7 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // --- WIDGET HELPERS (Identik dengan LoginScreen) ---
+  // --- WIDGET HELPERS ---
 
   Widget _buildBlurCircle(double size, Color color) {
     return Container(
@@ -263,11 +305,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           elevation: 0,
         ),
-        onPressed: _register,
-        child: const Text(
-          'DAFTAR',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-        ),
+        onPressed: _isLoading ? null : _register, // Matikan tombol jika sedang loading
+        child: _isLoading 
+          ? const SizedBox(
+              height: 24, 
+              width: 24, 
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+            )
+          : const Text(
+              'DAFTAR',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            ),
       ),
     );
   }
@@ -292,40 +340,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  void _register() {
-    if (usernameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        confirmPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Semua field wajib diisi ya!'),
-          backgroundColor: Colors.orangeAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      return;
-    }
-
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Password tidak sama nih!'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
     );
   }
 }
