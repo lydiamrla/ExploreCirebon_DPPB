@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'detail_wisata_screen.dart';
 import 'package:explorecirebon/data/favorite_data.dart';
 import '../controllers/destinasi_controller.dart';
@@ -14,17 +15,15 @@ class BudayaScreen extends StatefulWidget {
 }
 
 class _BudayaScreenState extends State<BudayaScreen> {
-  // Inisialisasi Controller
-  final DestinasiController _controller = DestinasiController();
-
   @override
   void initState() {
     super.initState();
-    // Mengambil data kategori 'Budaya' saat layar dibuka
-    _controller.fetchDestinasi('Budaya');
+    // Mengambil data kategori Budaya saat layar dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DestinasiController>().fetchDestinasi('Budaya');
+    });
   }
 
-  // Fungsi Favorit yang sudah disesuaikan dengan objek Destinasi
   void _toggleFavorite(Destinasi item) {
     setState(() {
       int index = favoriteList.indexWhere((fav) => fav.title == item.nama);
@@ -59,6 +58,10 @@ class _BudayaScreenState extends State<BudayaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<DestinasiController>();
+    // PENTING: Gunakan getter budayaList agar data konsisten (tidak tertukar)
+    final listBudaya = controller.budayaList;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -88,30 +91,29 @@ class _BudayaScreenState extends State<BudayaScreen> {
           ),
 
           SafeArea(
-            child: ListenableBuilder(
-              listenable: _controller,
-              builder: (context, child) {
+            child: Builder(
+              builder: (context) {
                 // Tampilan Loading
-                if (_controller.isLoading) {
+                if (controller.isLoading) {
                   return const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   );
                 }
 
-                // Tampilan jika data kosong
-                if (_controller.destinasiList.isEmpty) {
+                // Tampilan jika data kosong (menggunakan listBudaya)
+                if (listBudaya.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.cloud_off, color: Colors.white24, size: 80),
+                        const Icon(Icons.castle_outlined, color: Colors.white24, size: 80),
                         const SizedBox(height: 16),
                         const Text(
                           "Belum ada data budaya",
                           style: TextStyle(color: Colors.white70, fontSize: 18),
                         ),
                         TextButton(
-                          onPressed: () => _controller.fetchDestinasi('Budaya'),
+                          onPressed: () => controller.fetchDestinasi('Budaya'),
                           child: const Text("Coba Lagi", style: TextStyle(color: Colors.blueAccent)),
                         )
                       ],
@@ -119,15 +121,14 @@ class _BudayaScreenState extends State<BudayaScreen> {
                   );
                 }
 
-                
                 return RefreshIndicator(
-                  onRefresh: () => _controller.fetchDestinasi('Budaya'),
+                  onRefresh: () => controller.fetchDestinasi('Budaya'),
                   child: ListView.builder(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    itemCount: _controller.destinasiList.length,
+                    itemCount: listBudaya.length,
                     itemBuilder: (context, index) {
-                      final item = _controller.destinasiList[index];
+                      final item = listBudaya[index];
                       return _buildBudayaCard(context, item);
                     },
                   ),
@@ -164,9 +165,9 @@ class _BudayaScreenState extends State<BudayaScreen> {
           children: [
             Stack(
               children: [
-                // Gambar dari Backend (URL)
+                // Gambar dari Backend
                 Image.network(
-                  "${AppConfig.storageUrl}/${item.gambar}",
+                  item.gambar ?? '',
                   width: double.infinity,
                   height: 190,
                   fit: BoxFit.cover,
@@ -178,8 +179,6 @@ class _BudayaScreenState extends State<BudayaScreen> {
                     );
                   },
                 ),
-                
-                // Gradient Overlay pada Gambar
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -191,8 +190,6 @@ class _BudayaScreenState extends State<BudayaScreen> {
                     ),
                   ),
                 ),
-
-                // Tombol Favorit
                 Positioned(
                   top: 15,
                   right: 15,
@@ -220,7 +217,6 @@ class _BudayaScreenState extends State<BudayaScreen> {
                 ),
               ],
             ),
-
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(

@@ -245,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 25),
-          _sectionTitle("Security"),
+          _sectionTitle("Login"),
           const SizedBox(height: 15),
           _menuItem(
             icon: Icons.logout_rounded,

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'detail_wisata_screen.dart';
 import 'package:explorecirebon/data/favorite_data.dart';
 import '../controllers/destinasi_controller.dart';
@@ -14,17 +15,15 @@ class KulinerScreen extends StatefulWidget {
 }
 
 class _KulinerScreenState extends State<KulinerScreen> {
-  // Inisialisasi Controller
-  final DestinasiController _controller = DestinasiController();
-
   @override
   void initState() {
     super.initState();
-    // Mengambil data kategori 'Kuliner' saat layar dibuka
-    _controller.fetchDestinasi('Kuliner');
+    // Mengambil data kategori Kuliner lewat Provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DestinasiController>().fetchDestinasi('Kuliner');
+    });
   }
 
-  // Fungsi Favorit yang sudah disesuaikan dengan objek Destinasi
   void _toggleFavorite(Destinasi item) {
     setState(() {
       int index = favoriteList.indexWhere((fav) => fav.title == item.nama);
@@ -59,6 +58,10 @@ class _KulinerScreenState extends State<KulinerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<DestinasiController>();
+    // MENGGUNAKAN GETTER SPESIFIK: kulinerList
+    final listKuliner = controller.kulinerList;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -88,30 +91,29 @@ class _KulinerScreenState extends State<KulinerScreen> {
           ),
 
           SafeArea(
-            child: ListenableBuilder(
-              listenable: _controller,
-              builder: (context, child) {
+            child: Builder(
+              builder: (context) {
                 // Tampilan Loading
-                if (_controller.isLoading) {
+                if (controller.isLoading) {
                   return const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   );
                 }
 
-                // Tampilan jika data kosong
-                if (_controller.destinasiList.isEmpty) {
+                // Tampilan jika data kosong (menggunakan listKuliner)
+                if (listKuliner.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.cloud_off, color: Colors.white24, size: 80),
+                        const Icon(Icons.restaurant_menu, color: Colors.white24, size: 80),
                         const SizedBox(height: 16),
                         const Text(
                           "Belum ada data kuliner",
                           style: TextStyle(color: Colors.white70, fontSize: 18),
                         ),
                         TextButton(
-                          onPressed: () => _controller.fetchDestinasi('Kuliner'),
+                          onPressed: () => controller.fetchDestinasi('Kuliner'),
                           child: const Text("Coba Lagi", style: TextStyle(color: Colors.blueAccent)),
                         )
                       ],
@@ -119,15 +121,14 @@ class _KulinerScreenState extends State<KulinerScreen> {
                   );
                 }
 
-                // List Data dari Backend
                 return RefreshIndicator(
-                  onRefresh: () => _controller.fetchDestinasi('Kuliner'),
+                  onRefresh: () => controller.fetchDestinasi('Kuliner'),
                   child: ListView.builder(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    itemCount: _controller.destinasiList.length,
+                    itemCount: listKuliner.length,
                     itemBuilder: (context, index) {
-                      final item = _controller.destinasiList[index];
+                      final item = listKuliner[index];
                       return _buildKulinerCard(context, item);
                     },
                   ),
@@ -164,9 +165,8 @@ class _KulinerScreenState extends State<KulinerScreen> {
           children: [
             Stack(
               children: [
-                // Gambar dari Backend (URL)
                 Image.network(
-                  "${AppConfig.storageUrl}/${item.gambar}",
+                  item.gambar ?? '',
                   width: double.infinity,
                   height: 190,
                   fit: BoxFit.cover,
@@ -178,8 +178,6 @@ class _KulinerScreenState extends State<KulinerScreen> {
                     );
                   },
                 ),
-                
-                // Gradient Overlay pada Gambar
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -191,8 +189,6 @@ class _KulinerScreenState extends State<KulinerScreen> {
                     ),
                   ),
                 ),
-
-                // Tombol Favorit
                 Positioned(
                   top: 15,
                   right: 15,
@@ -220,7 +216,6 @@ class _KulinerScreenState extends State<KulinerScreen> {
                 ),
               ],
             ),
-
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(

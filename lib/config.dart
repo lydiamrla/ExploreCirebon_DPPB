@@ -1,6 +1,5 @@
 class AppConfig {
-  static const String baseUrl = "http://192.168.1.104/api";
-  
-  // Tambahkan ini untuk akses gambar
-  static const String storageUrl = "http://192.168.1.104/storage";
+  // Gunakan 10.0.2.2 khusus untuk Emulator Android
+  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static const String storageUrl = "http://10.0.2.2:8000/storage";
 }

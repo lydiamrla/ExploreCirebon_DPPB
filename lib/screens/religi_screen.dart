@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'detail_wisata_screen.dart';
 import 'package:explorecirebon/data/favorite_data.dart';
 import '../controllers/destinasi_controller.dart';
@@ -14,17 +15,15 @@ class ReligiScreen extends StatefulWidget {
 }
 
 class _ReligiScreenState extends State<ReligiScreen> {
-  // Inisialisasi Controller
-  final DestinasiController _controller = DestinasiController();
-
   @override
   void initState() {
     super.initState();
-    // Mengambil data kategori 'Religi' saat layar dibuka
-    _controller.fetchDestinasi('Religi');
+    // Mengambil data khusus kategori 'Religi' saat layar dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DestinasiController>().fetchDestinasi('Religi');
+    });
   }
 
-  // Fungsi Favorit yang sudah disesuaikan dengan objek Destinasi
   void _toggleFavorite(Destinasi item) {
     setState(() {
       int index = favoriteList.indexWhere((fav) => fav.title == item.nama);
@@ -59,6 +58,10 @@ class _ReligiScreenState extends State<ReligiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<DestinasiController>();
+    // PENTING: Gunakan getter religiList agar data tidak tertukar dengan kategori lain
+    final listReligi = controller.religiList;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -88,30 +91,29 @@ class _ReligiScreenState extends State<ReligiScreen> {
           ),
 
           SafeArea(
-            child: ListenableBuilder(
-              listenable: _controller,
-              builder: (context, child) {
+            child: Builder(
+              builder: (context) {
                 // Tampilan Loading
-                if (_controller.isLoading) {
+                if (controller.isLoading) {
                   return const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   );
                 }
 
-                // Tampilan jika data kosong
-                if (_controller.destinasiList.isEmpty) {
+                // Tampilan jika data kosong (menggunakan listReligi)
+                if (listReligi.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.cloud_off, color: Colors.white24, size: 80),
+                        const Icon(Icons.temple_hindu_outlined, color: Colors.white24, size: 80),
                         const SizedBox(height: 16),
                         const Text(
-                          "Belum ada data religi",
+                          "Belum ada data wisata religi",
                           style: TextStyle(color: Colors.white70, fontSize: 18),
                         ),
                         TextButton(
-                          onPressed: () => _controller.fetchDestinasi('Religi'),
+                          onPressed: () => controller.fetchDestinasi('Religi'),
                           child: const Text("Coba Lagi", style: TextStyle(color: Colors.blueAccent)),
                         )
                       ],
@@ -119,15 +121,14 @@ class _ReligiScreenState extends State<ReligiScreen> {
                   );
                 }
 
-                // List Data dari Backend
                 return RefreshIndicator(
-                  onRefresh: () => _controller.fetchDestinasi('Religi'),
+                  onRefresh: () => controller.fetchDestinasi('Religi'),
                   child: ListView.builder(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    itemCount: _controller.destinasiList.length,
+                    itemCount: listReligi.length,
                     itemBuilder: (context, index) {
-                      final item = _controller.destinasiList[index];
+                      final item = listReligi[index];
                       return _buildReligiCard(context, item);
                     },
                   ),
@@ -164,9 +165,9 @@ class _ReligiScreenState extends State<ReligiScreen> {
           children: [
             Stack(
               children: [
-                // Gambar dari Backend (URL)
+                // Gambar
                 Image.network(
-                  "${AppConfig.storageUrl}/${item.gambar}",
+                  item.gambar ?? '',
                   width: double.infinity,
                   height: 190,
                   fit: BoxFit.cover,
@@ -179,7 +180,7 @@ class _ReligiScreenState extends State<ReligiScreen> {
                   },
                 ),
                 
-                // Gradient Overlay pada Gambar
+                // Gradient Overlay
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(

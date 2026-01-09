@@ -31,7 +31,10 @@ class Ulasan {
       id: json['id'],
       rating: json['rating'] ?? 0,
       komentar: json['komentar'] ?? '',
-      user: json['user'] != null ? UserUlasan.fromJson(json['user']) : null,
+      user: UserUlasan(
+        name: json['name'] ?? 'Anonim', 
+        avatar: json['avatar'],
+      ),
     );
   }
 }
